@@ -25,7 +25,36 @@ app = Flask(__name__)
 @app.route('/')
 def home():
     return "ijfeuharhu"
-
+def scrape_flight_data(cards, response):
+        for card in cards:
+            travel_time = card.find_elements('xpath', ".//span[@class='mv1WYe']//span[@role='text']")
+            take_off = travel_time[0].text
+            arrival = travel_time[1].text
+            travel_company = card.find_elements('xpath', ".//div[@class='sSHqwe tPgKwe ogfYpf']/span[not(@class)]")[0]
+            travel_company = travel_company.text
+            airports = card.find_elements('xpath', ".//div[@class='']")
+            airport_from = airports[0].get_attribute('innerHTML')
+            airport_to = airports[1].get_attribute('innerHTML')
+            duration = card.find_element('xpath', ".//div[@class='gvkrdb AdWm1c tPgKwe ogfYpf']")
+            duration = duration.text
+            stops = card.find_element('xpath', ".//div[@class='EfT7Ae AdWm1c tPgKwe']//span[@class='ogfYpf']")
+            stops = stops.text
+            price = card.find_elements('xpath', ".//div[contains(@class, 'YMlIz FpEdX')]//span")[0]
+            price = price.text
+            
+            response.append({
+                "take_off": take_off,
+                "arrival": arrival,
+                "company": travel_company,
+                "price": price,
+                "duration": duration,
+                "airport_from": airport_from,
+                "airport_to": airport_to,
+                "stops": stops
+            })
+            
+        return response
+    
 @app.get("/suggestion/flights/place")
 def place():
     typed = request.json['typed']
@@ -140,43 +169,38 @@ def flights():
     
     response = []
     response.append({"url" : driver.current_url})
-    for card in cards:
-        travel_time = card.find_elements('xpath', ".//span[@class='mv1WYe']//span[@role='text']")
-        take_off = travel_time[0].text
-        arrival = travel_time[1].text
-        travel_company = card.find_elements('xpath', ".//div[@class='sSHqwe tPgKwe ogfYpf']/span[not(@class)]")[0]
-        travel_company = travel_company.text
-        airports = card.find_elements('xpath', ".//div[@class='']")
-        airport_from = airports[0].get_attribute('innerHTML')
-        airport_to = airports[1].get_attribute('innerHTML')
-        duration = card.find_element('xpath', ".//div[@class='gvkrdb AdWm1c tPgKwe ogfYpf']")
-        duration = duration.text
-        stops = card.find_element('xpath', ".//div[@class='EfT7Ae AdWm1c tPgKwe']//span[@class='ogfYpf']")
-        stops = stops.text
-        price = card.find_elements('xpath', ".//div[contains(@class, 'YMlIz FpEdX')]//span")[0]
-        price = price.text
-
-        response.append({
-            "take_off": take_off,
-            "arrival": arrival,
-            "company": travel_company,
-            "price": price,
-            "duration": duration,
-            "airport_from": airport_from,
-            "airport_to": airport_to,
-            "stops": stops
-        })
-        
+    response = scrape_flight_data(cards, response)
     return jsonify(response)
 
 @app.get("/flights/return") #segunda fase -> recebe o indice do clique e o link da pagina que deve ser clicada
-
+def phase2():
+    driver.get(request.json['url'])
+    time.sleep(2)
+    response = []
+    driver.find_elements('xpath', "//div[@class='yR1fYc']")[request.json['index']].click()
+    time.sleep(2)
+    response.append({"url" : driver.current_url})
+    driver.find_element('xpath', "//div[contains(@class, 'zISZ5c')]").click()
+    time.sleep(3)
+    response = scrape_flight_data(driver.find_elements('xpath', "//div[@class='yR1fYc']"), response)
+    return jsonify(response)
 @app.get("/flights/summary") #terceira fase -> recebe o indice do clique e o link da pagina e retorna os dois voos escolhidos
-
+def phase3():
+    driver.get(request.json['url'])
+    time.sleep(2)
+    response = []
+    driver.find_elements('xpath', "//div[@class='yR1fYc']")[request.json['index']].click()
+    time.sleep(2)
+    #continuar
+    cards = driver.find_elements('xpath', "//div[@role='list']/div") #cards da lista de voos
+    cards 
+    return response
+@app.get("/flights/filter")
+def apply_filter():
+    driver.get(request.json['url'])
 #running
 @app.get("/hotels")
 def hotels():
-    
     place = request.json['place']
     check_in = request.json['check_in']
     check_out = request.json['check_out']
