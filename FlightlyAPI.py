@@ -8,7 +8,8 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
+
 
 
 #setup
@@ -19,7 +20,12 @@ driver = webdriver.Chrome(service=Service(PATH), options=options)
 driver.maximize_window()
 app = Flask(__name__)
 
-
+def check_exists_by_xpath(driver, xpath):
+    try:
+        driver.find_element('xpath', xpath)
+    except NoSuchElementException:
+        return False
+    return True
 
 #define routes
 @app.route('/')
@@ -39,7 +45,10 @@ def scrape_flight_data(cards, response):
             duration = duration.text
             stops = card.find_element('xpath', ".//div[@class='EfT7Ae AdWm1c tPgKwe']//span[@class='ogfYpf']")
             stops = stops.text
-            price = card.find_elements('xpath', ".//div[contains(@class, 'YMlIz FpEdX')]//span")[0]
+            if(check_exists_by_xpath(driver, ".//div[contains(@class, 'YMlIz FpEdX')]//span")):
+                price = card.find_elements('xpath', ".//div[contains(@class, 'YMlIz FpEdX')]//span")[0]
+            else:
+                price = driver.find_element('xpath', "//div[@class='QORQHb']/span")
             price = price.text
             
             response.append({
@@ -190,20 +199,28 @@ def phase3():
     time.sleep(2)
     response = []
     driver.find_elements('xpath', "//div[@class='yR1fYc']")[request.json['index']].click()
-    time.sleep(2)
+    time.sleep(6) #Arrumar um jeito de esperar o site carregar completamente
+    response.append({"url" : driver.current_url})
     #continuar
     cards = driver.find_elements('xpath', "//div[@role='list']/div") #cards da lista de voos
-    response = scrape_flight_data(cards, response) #preço não está dentro do card !!!!!!!!!!
+    response = scrape_flight_data(cards, response)
     others = [] #coleção de dicionarios
     reservations = driver.find_elements('xpath', "//div[@class='gN1nAc']") #cards de reserva
     for reservation in reservations:
         reservation_dict = {}
-        #Só ajeitar
-        reservation_dict.update({"company" : reservation.find_element('xpath', ".//div[@class='sSHqwe tPgKwe ogfYpf']").text})
-        reservation_dict.update({"price" : reservation.find_element('xpath', ".//div[@class='YMlIz FpEdX']//span").text})
+        reservation_dict.update({"price" : reservation.find_elements('xpath', ".//span")[0].text})
+        reservation_dict.update({"company" : reservation.find_element('xpath', ".//div[@class='ogfYpf AdWm1c']").text})
         others.append(reservation_dict)
     response.append({"others" : others})
     return response
+@app.get("/flights/redirect")
+def redirect_flight():
+    driver.get(request.json['url'])
+    time.sleep(2)
+    card = driver.find_elements('xpath', "//div[@class='gN1nAc']")[request.json['index']]
+    card.find_element('xpath', ".//button").click()
+    time.sleep(2)
+    return driver.current_url
 @app.get("/flights/filter")
 def apply_filter():
     driver.get(request.json['url'])
