@@ -193,7 +193,16 @@ def phase3():
     time.sleep(2)
     #continuar
     cards = driver.find_elements('xpath', "//div[@role='list']/div") #cards da lista de voos
-    cards 
+    response = scrape_flight_data(cards, response) #preço não está dentro do card !!!!!!!!!!
+    others = [] #coleção de dicionarios
+    reservations = driver.find_elements('xpath', "//div[@class='gN1nAc']") #cards de reserva
+    for reservation in reservations:
+        reservation_dict = {}
+        #Só ajeitar
+        reservation_dict.update({"company" : reservation.find_element('xpath', ".//div[@class='sSHqwe tPgKwe ogfYpf']").text})
+        reservation_dict.update({"price" : reservation.find_element('xpath', ".//div[@class='YMlIz FpEdX']//span").text})
+        others.append(reservation_dict)
+    response.append({"others" : others})
     return response
 @app.get("/flights/filter")
 def apply_filter():
