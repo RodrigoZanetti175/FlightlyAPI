@@ -17,8 +17,9 @@ import re
 #PATH = "C:/Program Files (x86)/chromedriver.exe" 
 options = Options()
 #options.add_experimental_option("detach", True) 
+PROXY = "192.145.205.97:8080"
 options.add_argument('--lang=pt-BR')
-options.add_argument('--proxy-server="192.145.205.97:8080"')
+options.add_argument('--proxy-server=%s' % PROXY)
 options.add_argument('--proxy-bypass-list=*')
 
 options.add_argument('--log-level=3')  # Suppress log level to show only severe errors
