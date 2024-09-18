@@ -11,12 +11,12 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
-from selenium.webdriver.common.action_chains import ActionChains
+
 
 #PATH = "C:/Program Files (x86)/chromedriver.exe" 
 chromedriver.install()
 options = Options()
-options.add_experimental_option("detach", True) 
+#options.add_experimental_option("detach", True) 
 options.add_argument('--lang=pt-BR')
 options.add_argument('--proxy-server="direct://"')
 options.add_argument('--proxy-bypass-list=*')
@@ -26,7 +26,6 @@ options.add_experimental_option('excludeSwitches', ['enable-logging'])
 
 driver = webdriver.Chrome(options=options)
 driver.maximize_window()
-actions = ActionChains(driver)
 app = Flask(__name__)
 
 def check_exists_by_xpath(driver, xpath):
