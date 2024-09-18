@@ -17,10 +17,10 @@ import re
 #PATH = "C:/Program Files (x86)/chromedriver.exe" 
 options = Options()
 #options.add_experimental_option("detach", True) 
-PROXY = "54.233.119.172:3128"
+
 options.add_argument('--lang=pt-BR')
-options.add_argument('--proxy-server=%s' % PROXY)
-options.add_argument('--proxy-bypass-list=*')
+options.add_argument('proxy-server="direct://"')
+options.add_argument('proxy-bypass-list=*')
 
 options.add_argument('--log-level=3')  # Suppress log level to show only severe errors
 options.add_experimental_option('excludeSwitches', ['enable-logging'])
@@ -97,7 +97,7 @@ def scrape_flight_data(cards, response, filters = None):
 @app.get("/suggestion/flights/place")
 def place():
     typed = request.json['typed']
-    driver.get("https://www.google.com/travel/flights")
+    driver.get("https://www.google.com/travel/flights?gl=BR&hl=pt-BR")
     driver.find_elements('xpath',"//input")[0].clear()
     driver.find_elements('xpath',"//input")[0].send_keys(typed)
     try:
@@ -135,7 +135,7 @@ def flights():
     place_to = request.json['to']
     travel_departure = request.json['departure']
     travel_return = request.json['return']
-    driver.get("https://www.google.com/travel/flights")
+    driver.get("https://www.google.com/travel/flights?gl=BR&hl=pt-BR")
     time.sleep(1)
     inputs = driver.find_elements('xpath', "//input")
     inputs[2].send_keys(place_to)
