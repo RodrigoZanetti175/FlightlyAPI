@@ -70,7 +70,7 @@ def scrape_flight_data(cards, response, filters = None):
                 if(datetime.strptime(take_off, date_format) > datetime.strptime(filters["take_off"],date_format)):
                     continue
             stops = card.find_element('xpath', ".//div[@class='EfT7Ae AdWm1c tPgKwe']//span[@class='ogfYpf']")
-            stops = re.sub(r'\D+', '', stops.text)
+            stops = stops.text
             if(filters and "stops" in filters):
                 if(float(stops) != filters["stops"]):
                     continue
