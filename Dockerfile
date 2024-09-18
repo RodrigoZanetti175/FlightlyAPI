@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y wget unzip && \
     rm google-chrome-stable_current_amd64.deb && \
     apt-get clean
 
-CMD ["gunicorn"  , "-b", "0.0.0.0:8080", "main:app"]
+CMD ["gunicorn"  , "--workers=3", "--timeout=60", "-b", "0.0.0.0:8080", "main:app"]
 
 # FROM cypress/browsers:latest
 # RUN apt-get install python3 -y
