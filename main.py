@@ -20,7 +20,7 @@ options = Options()
 PROXY = "54.233.119.172:3128"
 options.add_argument('--lang=pt-BR')
 options.add_argument('--proxy-server=%s' % PROXY)
-
+options.add_argument('--proxy-bypass-list=*')
 
 options.add_argument('--log-level=3')  # Suppress log level to show only severe errors
 options.add_experimental_option('excludeSwitches', ['enable-logging'])
