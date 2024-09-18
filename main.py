@@ -1,7 +1,7 @@
 #imports
 from flask import Flask, jsonify , request
 from selenium import webdriver  
-import chromedriver_autoinstaller as chromedriver
+from webdriver_manager.chrome import ChromeDriverManager
 import time
 from datetime import datetime
 from selenium.webdriver.chrome.service import Service
@@ -14,7 +14,6 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 
 #PATH = "C:/Program Files (x86)/chromedriver.exe" 
-chromedriver.install()
 options = Options()
 #options.add_experimental_option("detach", True) 
 options.add_argument('--lang=pt-BR')
@@ -24,7 +23,7 @@ options.add_argument('--proxy-bypass-list=*')
 options.add_argument('--log-level=3')  # Suppress log level to show only severe errors
 options.add_experimental_option('excludeSwitches', ['enable-logging'])
 
-driver = webdriver.Chrome(options=options)
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=options)
 driver.maximize_window()
 app = Flask(__name__)
 
