@@ -11,6 +11,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
+import re
 
 
 #PATH = "C:/Program Files (x86)/chromedriver.exe" 
@@ -22,6 +23,10 @@ options.add_argument('--proxy-bypass-list=*')
 
 options.add_argument('--log-level=3')  # Suppress log level to show only severe errors
 options.add_experimental_option('excludeSwitches', ['enable-logging'])
+
+options.add_argument('--no-sandbox')
+options.add_argument('--disable-dev-shm-usage')
+options.add_argument('--headless')
 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=options)
 driver.maximize_window()
@@ -37,7 +42,7 @@ def check_exists_by_xpath(driver, xpath):
 #define routes
 @app.route('/')
 def home():
-    return "ijfeuharhu"
+    return "Hello World"
 def scrape_flight_data(cards, response, filters = None):
         for card in cards:
             if(check_exists_by_xpath(driver, ".//div[contains(@class, 'YMlIz FpEdX')]//span")):
@@ -46,10 +51,10 @@ def scrape_flight_data(cards, response, filters = None):
                 price = driver.find_element('xpath', "//div[@class='QORQHb']/span")
             price = price.text.replace("R$ ","").replace(".","")
             if(filters and "max_price" in filters):
-                if(int(price) > filters["max_price"]):
+                if(float(price) > filters["max_price"]):
                     break
             if(filters and "min_price" in filters):
-                if(int(price) < filters["min_price"]):
+                if(float(price) < filters["min_price"]):
                     continue
             travel_company = card.find_elements('xpath', ".//div[@class='sSHqwe tPgKwe ogfYpf']/span[not(@class)]")[0]
             travel_company = travel_company.text
@@ -64,9 +69,9 @@ def scrape_flight_data(cards, response, filters = None):
                 if(datetime.strptime(take_off, date_format) > datetime.strptime(filters["take_off"],date_format)):
                     continue
             stops = card.find_element('xpath', ".//div[@class='EfT7Ae AdWm1c tPgKwe']//span[@class='ogfYpf']")
-            stops = stops.text
+            stops = re.sub(r'\D+', '', stops.text)
             if(filters and "stops" in filters):
-                if(int(stops) != filters["stops"]):
+                if(float(stops) != filters["stops"]):
                     continue
             arrival = travel_time[1].text
             airports = card.find_elements('xpath', ".//div[@class='']")
