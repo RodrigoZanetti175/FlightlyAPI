@@ -16,7 +16,6 @@ import re
 
 #PATH = "C:/Program Files (x86)/chromedriver.exe" 
 options = Options()
-#options.add_experimental_option("detach", True) 
 
 options.add_argument('--lang=pt-BR')
 options.add_argument('proxy-server="direct://"')
@@ -25,9 +24,12 @@ options.add_argument('proxy-bypass-list=*')
 options.add_argument('--log-level=3')  # Suppress log level to show only severe errors
 options.add_experimental_option('excludeSwitches', ['enable-logging'])
 
-options.add_argument('--no-sandbox')
-options.add_argument('--disable-dev-shm-usage')
-options.add_argument('--headless')
+options.add_experimental_option("detach", True) 
+
+#Production Options
+#options.add_argument('--no-sandbox')
+#options.add_argument('--disable-dev-shm-usage')
+#options.add_argument('--headless')
 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=options)
 driver.maximize_window()
@@ -44,6 +46,33 @@ def check_exists_by_xpath(driver, xpath):
 @app.route('/')
 def home():
     return "Hello World"
+
+def scrape_hotel_data(cards, response, filters = None):
+    for card in cards:
+        images = []
+        for image in card.find_elements('xpath', ".//img"):
+            images.append(image.get_attribute('src'))
+        name = card.find_element('xpath', ".//div[@class='QT7m7']").text
+        stars = ""
+        if check_exists_by_xpath(card, ".//span[@class='KFi5wf lA0BZ ']"):
+            stars = card.find_element('xpath', ".//span[@class='KFi5wf lA0BZ ']").text  
+        reviews = ""
+        if check_exists_by_xpath(card, ".//span[@class='jdzyld XLC8M ']"):
+            reviews = card.find_element('xpath', ".//span[@class='jdzyld XLC8M ']").text
+        characteristics = []
+        for characteristic in card.find_elements('xpath', ".//div[@class='HlxIlc jBZYu']//span[2]"):
+            characteristics.append(characteristic.text)
+        price = card.find_elements('xpath', ".//div[@class='JGa7fd']")[0].text
+        response.append({
+            "name" : name,
+            "image" : images,
+            "stars" : stars,
+            "reviews" : reviews,
+            "characteristics" : characteristics,
+            "price" : price
+        })
+    return response
+        
 def scrape_flight_data(cards, response, filters = None):
         for card in cards:
             if(check_exists_by_xpath(driver, ".//div[contains(@class, 'YMlIz FpEdX')]//span")):
@@ -259,26 +288,25 @@ def apply_filter():
     expand.click()
     time.sleep(4)
     filters = request.json['filters']
-    response = scrape_flight_data(driver.find_elements('xpath', "//div[@class='yR1fYc']"), [], filters)
+    response = []
+    response.append({"url" : driver.current_url})
+    response = scrape_flight_data(driver.find_elements('xpath', "//div[@class='yR1fYc']"), response, filters)
     return jsonify(response)
 
     #price_slider -> //input[@class='VfPpkd-YCNiv']/
     
 #running
+
 @app.get("/hotels")
 def hotels():
     place = request.json['place']
     check_in = request.json['check_in']
     check_out = request.json['check_out']
-    driver.get('https://www.google.com/travel/search')
+    adults = request.json['adults']
+    children = request.json['children']
+    driver.get('https://www.google.com/travel/search?q='+place+'&gl=BR&hl=pt-BR')
     inputs = driver.find_elements('xpath', "//div[@class='tbDMNe']//input")
     #Arrumar (Falta um focus pro enter funcionar (eu acho))
-    inputs[0].clear()
-    inputs[0].send_keys(place)
-    time.sleep(1)
-    inputs[0].send_keys(Keys.RETURN)
-    #------------
-    time.sleep(5)
     #inputs[2].click()
     inputs[2].clear()
     inputs[2].send_keys(check_in)
@@ -287,10 +315,30 @@ def hotels():
     inputs[3].clear()
     time.sleep(1)
     inputs[3].send_keys(check_out)
-    time.sleep(2)
-    people_div = driver.find_elements('xpath', "//div[@jsname='kj0dLd']")[1]
-    time.sleep(1)
-    people_div.click()
+    
+    if(adults != 2 or children > 0):
+        time.sleep(2)
+        people_div = driver.find_elements('xpath', "//div[@jsname='kj0dLd']")[1]
+        time.sleep(1)
+        people_div.click()
+        time.sleep(0.5)
+        passangers_buttons = driver.find_elements('xpath', "//div[@class='MlZqJf']//button") 
+        if adults < 2:
+            passangers_buttons[0].click()
+        for i in range(adults-2):
+            passangers_buttons[1].click()
+        for i in range(children):
+            passangers_buttons[3].click()
+        driver.find_elements('xpath', "//div[@class='moeCJc']//button")[1].click()
+        time.sleep(4)
+        try:
+            cards = WebDriverWait(driver, 3).until(EC.presence_of_all_elements_located((By.XPATH, "//div[@class='uaTTDe BcKagd  bLc2Te Xr6b1e']")))
+        except TimeoutException:
+            return 0
+        response = []
+        response.append({"url" : driver.current_url})
+        response = scrape_hotel_data(cards, response)
+        return jsonify(response)
     
     return "hello world"
 if __name__ == "__main__":
