@@ -52,17 +52,32 @@ def scrape_hotel_data(cards, response, filters = None):
         images = []
         for image in card.find_elements('xpath', ".//img"):
             images.append(image.get_attribute('src'))
+        price = card.find_elements('xpath', ".//div[@class='JGa7fd']")[0].text
+        price = price.replace("R$ ","")
+        if filters and "max_price" in filters:
+            if(float(price) > filters["max_price"]):
+                continue
         name = card.find_element('xpath', ".//div[@class='QT7m7']").text
         stars = ""
         if check_exists_by_xpath(card, ".//span[@class='KFi5wf lA0BZ ']"):
-            stars = card.find_element('xpath', ".//span[@class='KFi5wf lA0BZ ']").text  
+            stars = card.find_element('xpath', ".//span[@class='KFi5wf lA0BZ ']").text
+            stars = stars.replace(",",".")
+            if filters and "stars" in filters:
+                if(float(stars) < filters["stars"]):
+                    continue  
         reviews = ""
         if check_exists_by_xpath(card, ".//span[@class='jdzyld XLC8M ']"):
             reviews = card.find_element('xpath', ".//span[@class='jdzyld XLC8M ']").text
         characteristics = []
         for characteristic in card.find_elements('xpath', ".//div[@class='HlxIlc jBZYu']//span[2]"):
             characteristics.append(characteristic.text)
-        price = card.find_elements('xpath', ".//div[@class='JGa7fd']")[0].text
+        check = False
+        if filters and "services" in filters:
+            for service in filters["services"]:
+                if service in characteristics:
+                    check = True
+            if check == False:
+                continue
         response.append({
             "name" : name,
             "image" : images,
@@ -325,9 +340,9 @@ def hotels():
         passangers_buttons = driver.find_elements('xpath', "//div[@class='MlZqJf']//button") 
         if adults < 2:
             passangers_buttons[0].click()
-        for i in range(adults-2):
+        for _ in range(adults-2):
             passangers_buttons[1].click()
-        for i in range(children):
+        for _ in range(children):
             passangers_buttons[3].click()
         driver.find_elements('xpath', "//div[@class='moeCJc']//button")[1].click()
         time.sleep(4)
@@ -339,7 +354,103 @@ def hotels():
         response.append({"url" : driver.current_url})
         response = scrape_hotel_data(cards, response)
         return jsonify(response)
-    
+@app.get("/hotels/filter")
+def apply_filter_hotel():
+    driver.get(request.json['url'])
+    time.sleep(1)
+    filters = request.json['filters']
+    #filtros: preço, avaliação, serviços
+    response = []
+    response.append({"url" : driver.current_url})
+    try:
+        cards = WebDriverWait(driver, 3).until(EC.presence_of_all_elements_located((By.XPATH, "//div[@class='uaTTDe BcKagd  bLc2Te Xr6b1e']")))
+    except TimeoutException:
+        return 0
+    response = scrape_hotel_data(cards , response, filters)
+    return response
+@app.get('/suggestion/cars')
+def cars_suggestion():
+    driver.get("https://www.rentcars.com/pt-br/")
+    time.sleep(2)
+    typed = request.json['typed']
+    driver.find_element('xpath', "//div[@class='get-car-in']//input[@type='text']").send_keys(typed)
+    try:
+        suggestions = WebDriverWait(driver,3).until(EC.presence_of_all_elements_located((By.XPATH, "//div[@class='get-car-in']//ul[contains(@class, 'autocomplete')]//li")))
+    except TimeoutException:
+        return 0
+    response = []
+    for suggestion in suggestions:
+        tipo = 1 if "Cidades" in suggestion.get_attribute('aria-label') else 2
+        response.append({"tipo" : tipo, "suggestion" : suggestion.find_elements('xpath', ".//span")[0].text})
+    return jsonify(response)
+
+@app.get("/cars")
+def cars():
+    driver.get("https://www.rentcars.com/pt-br/")
+    place = request.json['place']
+    months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    data_retirada = request.json['data_retirada']
+    data_devolucao = request.json['data_devolucao']
+    data_retirada = data_retirada.split("/")
+    data_devolucao = data_devolucao.split("/")
+    time.sleep(2)
+    driver.find_element('xpath', "//input[@id='DataRetirada']").click()
+    time.sleep(1)
+    month_selector_retirada = months[int(data_retirada[1])-1] + " " + data_retirada[2]
+    retirada_found = False
+    while not retirada_found:
+        counter = 0
+        for month in driver.find_elements('xpath', "//th[@class='month']"):
+            if month.text == month_selector_retirada:
+                retirada_found = True
+                break 
+            counter += 1
+        if not retirada_found:
+            driver.find_element('xpath', "//th[contains(@class, 'next')]//span").click()
+        time.sleep(1)
+    table_location = 'left' if counter == 0 else 'right'
+    driver.find_element('xpath', "//div[@class='drp-calendar "+ table_location +"']//td//span[text()='"+str(int(data_retirada[0]))+"']").click()
+    time.sleep(1)
+    month_selector_devolucao = months[int(data_devolucao[1])-1] + " " + data_devolucao[2]
+    devolucao_found = False
+    while not devolucao_found:
+        counter = 0
+        for month in driver.find_elements('xpath', "//th[@class='month']"):
+            if month.text == month_selector_devolucao:
+                devolucao_found = True
+                break 
+            counter += 1
+        if not devolucao_found:
+            driver.find_element('xpath', "//th[contains(@class, 'next')]//span").click()
+        time.sleep(1)
+    table_location = 'left' if counter == 0 else 'right'
+    driver.find_element('xpath', "//div[@class='drp-calendar "+ table_location +"']//td//span[text()='"+str(int(data_devolucao[0]))+"']").click()
+    hora_retirada = request.json['hora_retirada']
+    hora_devolucao = request.json['hora_devolucao']
+
+    # Select the hour of pickup
+    hora_retirada_select = driver.find_element('xpath', "//select[@id='HoraRetirada']")
+    for option in hora_retirada_select.find_elements('tag name', 'option'):
+        if option.text == hora_retirada:
+            option.click()
+            break
+
+    # Select the hour of return
+    hora_devolucao_select = driver.find_element('xpath', "//select[@id='HoraDevolucao']")
+    for option in hora_devolucao_select.find_elements('tag name', 'option'):
+        if option.text == hora_devolucao:
+            option.click()
+            break
+
+
+    driver.find_element('xpath', "//div[@class='get-car-in']//input[@type='text']").send_keys(place)
+    time.sleep(3)
+    driver.find_element('xpath', "//div[@class='get-car-in']//ul[contains(@class, 'autocomplete')]//li//span[1][contains(text(),'"+place+"')]").click()
+    driver.find_element('xpath', "//div[@class='search-btn']//button").click()
+
+    cards = driver.find_elements('xpath', "//div[@rent-infinite-scroll-target/div")
+    #scraping part
+
     return "hello world"
 if __name__ == "__main__":
     app.run()
