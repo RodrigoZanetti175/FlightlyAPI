@@ -24,12 +24,12 @@ options.add_argument('proxy-bypass-list=*')
 options.add_argument('--log-level=3')  # Suppress log level to show only severe errors
 options.add_experimental_option('excludeSwitches', ['enable-logging'])
 
-options.add_experimental_option("detach", True) 
+#options.add_experimental_option("detach", True) 
 
 #Production Options
-#options.add_argument('--no-sandbox')
-#options.add_argument('--disable-dev-shm-usage')
-#options.add_argument('--headless')
+options.add_argument('--no-sandbox')
+options.add_argument('--disable-dev-shm-usage')
+options.add_argument('--headless')
 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=options)
 driver.maximize_window()
@@ -46,6 +46,37 @@ def check_exists_by_xpath(driver, xpath):
 @app.route('/')
 def home():
     return "Hello World"
+
+def scrape_car_data(cards, response, filters = None):
+    for card in cards:
+        price = card.find_element('xpath', ".//div[@class='total-amount_1XUQg1Kt']").text
+        price = price.replace("R$ ","").replace(".","").replace(",",".")
+        if filters and "max_price" in filters:
+            if(float(price) > filters["max_price"]):
+                continue
+        try:
+            company = WebDriverWait(card, 5).until(
+                EC.presence_of_element_located((By.XPATH, ".//div[contains(@class, 'rental-company-evaluation-img')]//img"))
+            ).get_attribute('alt').split(' ')[0]
+        except TimeoutException:
+            company = "Unknown"
+        car_string = card.find_element('xpath', ".//div[contains(@class, 'card-vehicle-title')]").text
+        modelo = car_string.split(' ')[1]
+        marca = car_string.split(' ')[0]
+        info = card.find_elements('xpath', ".//div[@class='booking-configurations']//ul//span")
+        assentos = info[0].text
+        cambio = info[2].text
+        tipo = card.find_elements('xpath', ".//div[contains(@class, 'card-vehicle-title')]")[1].text.split(' ')[1]
+        response.append({
+            "price" : price,
+            "company" : company,
+            "modelo" : modelo,
+            "marca" : marca,
+            "assentos" : assentos,
+            "cambio" : cambio,
+            "tipo" : tipo
+        })
+    return response
 
 def scrape_hotel_data(cards, response, filters = None):
     for card in cards:
@@ -383,6 +414,14 @@ def cars_suggestion():
         tipo = 1 if "Cidades" in suggestion.get_attribute('aria-label') else 2
         response.append({"tipo" : tipo, "suggestion" : suggestion.find_elements('xpath', ".//span")[0].text})
     return jsonify(response)
+@app.get("/teste")
+def teste():
+    driver.get('https://www.rentcars.com/pt-br/reserva/listar/201-1730206800-201-1730293200-0-0-0-0-0-0-0-0')
+    time.sleep(4)
+    try:
+        return WebDriverWait(driver, 3).until(EC.presence_of_all_elements_located((By.XPATH, "//div[contains(@class, 'rental-company-evaluation-img')]//img")))[0].get_attribute('alt')
+    except TimeoutException:
+        return 0
 
 @app.get("/cars")
 def cars():
@@ -441,16 +480,30 @@ def cars():
         if option.text == hora_devolucao:
             option.click()
             break
-
-
     driver.find_element('xpath', "//div[@class='get-car-in']//input[@type='text']").send_keys(place)
+    time.sleep(0.5)
+    driver.find_element('xpath', "//div[@class='get-car-in']//input[@type='text']").send_keys(Keys.SPACE)
     time.sleep(3)
     driver.find_element('xpath', "//div[@class='get-car-in']//ul[contains(@class, 'autocomplete')]//li//span[1][contains(text(),'"+place+"')]").click()
     driver.find_element('xpath', "//div[@class='search-btn']//button").click()
+    time.sleep(2)
+    try:
+        WebDriverWait(driver, 30).until(EC.presence_of_all_elements_located((By.XPATH, "//div[@rent-infinite-scroll-target]/div")))
+    except TimeoutException:
+        return "Timeout"
+    time.sleep(1)
+    cards = driver.find_elements('xpath', "//div[@rent-infinite-scroll-target]/div")
+    response = []
+    response.append({"url" : driver.current_url})
+    response = scrape_car_data(cards, response)
+    return jsonify(response)
 
-    cards = driver.find_elements('xpath', "//div[@rent-infinite-scroll-target/div")
-    #scraping part
+@app.get("/attractions")
+def attractions():
+    place = request.json['place']
+    driver.get("https://tourscanner.com/pt")
+    driver.find_element('xpath', "//input[@type='search']").send_keys(place)
+    return "games"
 
-    return "hello world"
 if __name__ == "__main__":
     app.run()
