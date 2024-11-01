@@ -12,6 +12,8 @@ RUN apt-get update && apt-get install -y wget unzip && \
     rm google-chrome-stable_current_amd64.deb && \
     apt-get clean
 
+EXPOSE 8080
+
 CMD ["gunicorn"  , "--workers=2", "--timeout=120", "-b", "0.0.0.0:8080", "main:app"]
 
 # FROM cypress/browsers:latest

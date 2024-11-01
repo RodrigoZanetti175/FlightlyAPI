@@ -12,6 +12,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 import re
+from flask_cors import CORS
+from selenium_stealth import stealth
 
 
 #PATH = "C:/Program Files (x86)/chromedriver.exe" 
@@ -30,17 +32,31 @@ options.add_experimental_option('excludeSwitches', ['enable-logging'])
 options.add_argument('--no-sandbox')
 options.add_argument('--disable-dev-shm-usage')
 options.add_argument('--headless')
+options.add_argument('--disable-blink-features=AutomationControlled')
+options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/93.0.4577.82 Safari/537.36")
 
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),options=options)
-driver.maximize_window()
+stealth(driver,
+    languages=["pt-BR", "pt"],
+    vendor="Google Inc.",
+    platform="Win32",
+    webgl_vendor="Intel Inc.",
+    renderer="Intel Iris OpenGL Engine",
+    fix_hairline=True,
+    use_angle=True,
+    passive_events=True,
+    hide_browser_info=True
+    )
+driver.set_window_size(1920, 1080)
 app = Flask(__name__)
+CORS(app)
 
-def check_exists_by_xpath(driver, xpath):
+def check_exists_by_xpath(element, xpath):
     try:
-        driver.find_element('xpath', xpath)
-    except NoSuchElementException:
+        WebDriverWait(element, 10).until(EC.presence_of_element_located((By.XPATH, xpath)))
+        return True
+    except:
         return False
-    return True
 
 #define routes
 @app.route('/')
@@ -49,6 +65,10 @@ def home():
 
 def scrape_car_data(cards, response, filters = None):
     for card in cards:
+        try:
+            WebDriverWait(card, 15).until(EC.presence_of_element_located((By.XPATH, ".//div[@class='total-amount_1XUQg1Kt']")))
+        except TimeoutException:
+            return False
         price = card.find_element('xpath', ".//div[@class='total-amount_1XUQg1Kt']").text
         price = price.replace("R$ ","").replace(".","").replace(",",".")
         if filters and "max_price" in filters:
@@ -121,11 +141,13 @@ def scrape_hotel_data(cards, response, filters = None):
         
 def scrape_flight_data(cards, response, filters = None):
         for card in cards:
-            if(check_exists_by_xpath(driver, ".//div[contains(@class, 'YMlIz FpEdX')]//span")):
-                price = card.find_elements('xpath', ".//div[contains(@class, 'YMlIz FpEdX')]//span")[0]
+            if(check_exists_by_xpath(card, ".//div[contains(@class, 'YMlIz FpEdX')]//span")):
+                price = card.find_element('xpath', ".//div[contains(@class, 'YMlIz FpEdX')]//span")
             else:
                 price = driver.find_element('xpath', "//div[@class='QORQHb']/span")
             price = price.text.replace("R$ ","").replace(".","")
+            if(price == ""):
+                break
             if(filters and "max_price" in filters):
                 if(float(price) > filters["max_price"]):
                     break
@@ -200,16 +222,27 @@ def place():
    
 @app.get("/flights")
 def flights():
-    travel_type = request.json['type'] #ow(one-way) or rt(round-trip)
-    infants_lap = request.json['infants_lap']
-    children = request.json['children'] 
-    infants_seat = request.json['infants_seat']
-    adults = request.json['adults']
-    travel_class =  request.json['class'] # economy, executive, first
-    place_from = request.json['from']
-    place_to = request.json['to']
-    travel_departure = request.json['departure']
-    travel_return = request.json['return']
+    travel_type = request.args.get('type') #ow(one-way) or rt(round-trip)
+    infants_lap = request.args.get('infants_lap', type=int)
+    children = request.args.get('children', type=int)
+    infants_seat = request.args.get('infants_seat', type=int)
+    adults = request.args.get('adults', type=int)
+    travel_class = request.args.get('class') # economy, executive, first
+    place_from = request.args.get('from')
+    place_to = request.args.get('to')
+    travel_departure = request.args.get('departure')
+    travel_return = request.args.get('return')
+    #travel_type = data['type'] #ow(one-way) or rt(round-trip)
+    #infants_lap = data['infants_lap']
+    #children = data['children'] 
+    #infants_seat = data['infants_seat']
+    #adults = data['adults']
+    #travel_class =  data['class'] # economy, executive, first
+    #place_from = data['from']
+    #place_to = data['to']
+    #travel_departure = data['departure']
+    #travel_return = data['return']
+
     driver.get("https://www.google.com/travel/flights?gl=BR&hl=pt-BR")
     time.sleep(1)
     inputs = driver.find_elements('xpath', "//input")
@@ -276,6 +309,10 @@ def flights():
     time.sleep(1)
 
     #start scrapping
+    try:
+        WebDriverWait(driver, 15).until(EC.presence_of_all_elements_located((By.XPATH, "//div[contains(@class, 'zISZ5c')]")))
+    except TimeoutException:
+        return driver.page_source
     expand = driver.find_element('xpath', "//div[contains(@class, 'zISZ5c')]")
     expand.click()
     time.sleep(6)
@@ -345,11 +382,11 @@ def apply_filter():
 
 @app.get("/hotels")
 def hotels():
-    place = request.json['place']
-    check_in = request.json['check_in']
-    check_out = request.json['check_out']
-    adults = request.json['adults']
-    children = request.json['children']
+    place = request.args.get('place')
+    check_in = request.args.get('check_in')
+    check_out = request.args.get('check_out')
+    adults = int(request.args.get('adults'))
+    children = int(request.args.get('children'))
     driver.get('https://www.google.com/travel/search?q='+place+'&gl=BR&hl=pt-BR')
     inputs = driver.find_elements('xpath', "//div[@class='tbDMNe']//input")
     #Arrumar (Falta um focus pro enter funcionar (eu acho))
@@ -426,14 +463,21 @@ def teste():
 @app.get("/cars")
 def cars():
     driver.get("https://www.rentcars.com/pt-br/")
-    place = request.json['place']
+    place = request.args.get('place')
     months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-    data_retirada = request.json['data_retirada']
-    data_devolucao = request.json['data_devolucao']
+    
+    data_retirada = request.args.get('data_retirada')
+    data_devolucao = request.args.get('data_devolucao')
     data_retirada = data_retirada.split("/")
     data_devolucao = data_devolucao.split("/")
     time.sleep(2)
-    driver.find_element('xpath', "//input[@id='DataRetirada']").click()
+    try:
+        WebDriverWait(driver, 60).until(
+            EC.presence_of_element_located((By.XPATH, "//div[@class='search-pickup-date elVal']"))
+        )
+    except TimeoutException:
+        return driver.page_source
+    driver.find_element('xpath', "//div[@class='search-pickup-date elVal']").click()
     time.sleep(1)
     month_selector_retirada = months[int(data_retirada[1])-1] + " " + data_retirada[2]
     retirada_found = False
@@ -464,8 +508,8 @@ def cars():
         time.sleep(1)
     table_location = 'left' if counter == 0 else 'right'
     driver.find_element('xpath', "//div[@class='drp-calendar "+ table_location +"']//td//span[text()='"+str(int(data_devolucao[0]))+"']").click()
-    hora_retirada = request.json['hora_retirada']
-    hora_devolucao = request.json['hora_devolucao']
+    hora_retirada = request.args.get('hora_retirada')
+    hora_devolucao = request.args.get('hora_devolucao')
 
     # Select the hour of pickup
     hora_retirada_select = driver.find_element('xpath', "//select[@id='HoraRetirada']")
@@ -488,9 +532,9 @@ def cars():
     driver.find_element('xpath', "//div[@class='search-btn']//button").click()
     time.sleep(2)
     try:
-        WebDriverWait(driver, 30).until(EC.presence_of_all_elements_located((By.XPATH, "//div[@rent-infinite-scroll-target]/div")))
+        WebDriverWait(driver, 60).until(EC.presence_of_all_elements_located((By.XPATH, "//div[@rent-infinite-scroll-target]/div")))
     except TimeoutException:
-        return "Timeout"
+        return jsonify({"error": "Timeout waiting for car data"}), 504
     time.sleep(1)
     cards = driver.find_elements('xpath', "//div[@rent-infinite-scroll-target]/div")
     response = []
@@ -501,9 +545,31 @@ def cars():
 @app.get("/attractions")
 def attractions():
     place = request.json['place']
-    driver.get("https://tourscanner.com/pt")
-    driver.find_element('xpath', "//input[@type='search']").send_keys(place)
-    return "games"
+    driver.get("https://tourscanner.com/pt/search?q="+place)
+    try:
+        cards = WebDriverWait(driver, 3).until(EC.presence_of_all_elements_located((By.XPATH, "//div[@class='flex-column w']//ul//li")))
+    except TimeoutException:
+        return jsonify({"error": "Timeout waiting for attractions"}, 504)
+    
+    response = []
+    for card in cards:
+        name = card.find_element('xpath', ".//h2").text
+        image = card.find_element('xpath', ".//img").get_attribute('src')
+        stars = card.find_element('xpath', ".//div[@class='flex items-end space-x-2']//span")[0].text
+        reviews = card.find_element('xpath', ".//div[@class='flex items-end space-x-2']//span")[1].text
+        try:
+            price = card.find_element('xpath', ".//div[@class='flex items-end space-x-2']//div").text
+        except NoSuchElementException:
+            price = card.find_element('xpath', ".//div[@class='flex items-end space-x-2']//p").text
+        price = price.replace("R$ ","")
+        response.append({
+            "name" : name,
+            "image" : image,
+            "stars" : stars,
+            "reviews" : reviews,
+            "price" : price
+        })
+    return jsonify(response)
 
 if __name__ == "__main__":
     app.run()
