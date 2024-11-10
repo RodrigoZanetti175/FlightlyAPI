@@ -15,9 +15,16 @@ import re
 from flask_cors import CORS
 from selenium_stealth import stealth
 
+chrome_driver_path = "/usr/local/bin/chromedriver"
+chrome_bin_path = "/usr/bin/google-chrome"
+
+from subprocess import run
+print(run(["google-chrome-stable", "--version"], capture_output=True, text=True))
 
 #PATH = "C:/Program Files (x86)/chromedriver.exe" 
 options = Options()
+
+options.binary_location = chrome_bin_path
 
 options.add_argument('--lang=pt-BR')
 options.add_argument('proxy-server="direct://"')
@@ -193,7 +200,7 @@ def scrape_flight_data(cards, response, filters = None):
     
 @app.get("/suggestion/flights/place")
 def place():
-    typed = request.json['typed']
+    typed = request.args.get('typed')
     driver.get("https://www.google.com/travel/flights?gl=BR&hl=pt-BR")
     driver.find_elements('xpath',"//input")[0].clear()
     driver.find_elements('xpath',"//input")[0].send_keys(typed)

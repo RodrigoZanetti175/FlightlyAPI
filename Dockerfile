@@ -1,26 +1,47 @@
-FROM python:3.12-slim
+# Use an official Python base image
+FROM python:3.9-slim
 
+# Set the working directory
 WORKDIR /app
 
-COPY . /app
+# Install dependencies for Chrome and Selenium
+RUN apt-get update && \
+    apt-get install -y \
+    wget \
+    curl \
+    unzip \
+    gnupg2 \
+    ca-certificates \
+    libx11-dev \
+    libxcomposite1 \
+    libxdamage1 \
+    libxi6 \
+    libgconf-2-4 \
+    libnss3 \
+    libxrandr2 \
+    libappindicator3-1 \
+    libasound2 \
+    fonts-liberation \
+    libu2f-udev \
+    libxss1 \
+    lsb-release \
+    xdg-utils \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN pip install -r requirements.txt
+# Install the stable version of Google Chrome
+RUN curl -sSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o google-chrome-stable_current_amd64.deb && \
+    apt-get update && \
+    apt-get install -y ./google-chrome-stable_current_amd64.deb && \
+    rm google-chrome-stable_current_amd64.deb
 
-RUN apt-get update && apt-get install -y wget unzip && \
-    wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
-    apt install -y ./google-chrome-stable_current_amd64.deb && \
-    rm google-chrome-stable_current_amd64.deb && \
-    apt-get clean
+# Copy the requirements.txt into the container
+COPY requirements.txt .
 
-EXPOSE 8080
+# Install Python dependencies from requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-CMD ["gunicorn"  , "--workers=4", "--timeout=120", "-b", "0.0.0.0:8080", "main:app"]
+# Copy the rest of the application files into the container
+COPY . .
 
-# FROM cypress/browsers:latest
-# RUN apt-get install python3 -y
-# RUN echo $(python3 -m site --user-base)
-# COPY requirements.txt .
-# ENV PATH /home/root/.local/bin:${PATH}
-# RUN apt-get update && apt-get install -y python3-pip && pip3 install -r requirements.txt	
-# COPY . .
-# CMD uvicorn main:app --host 0.0.0.0 --port 8000
+# Run the application with Gunicorn
+CMD ["gunicorn", "--workers=4", "--timeout=120", "-b", "0.0.0.0:8080", "main:app"]
