@@ -94,6 +94,12 @@ def scrape_car_data(cards, response, filters = None):
         assentos = info[0].text
         cambio = info[2].text
         tipo = card.find_elements('xpath', ".//div[contains(@class, 'card-vehicle-title')]")[1].text.split(' ')[1]
+        image = card.find_element('xpath', ".//div[contains(@class,'card-vehicle-container-left')]/img").get_attribute('src')
+        if(check_exists_by_xpath(card, ".//div[contains(@class,'rental-company')]//img")):
+            companyImage = card.find_element('xpath', ".//div[contains(@class,'rental-company')]//img")
+            companyImage = companyImage.get_attribute('src')
+        else:
+            companyImage = ""
         response.append({
             "price" : price,
             "company" : company,
@@ -101,7 +107,9 @@ def scrape_car_data(cards, response, filters = None):
             "marca" : marca,
             "assentos" : assentos,
             "cambio" : cambio,
-            "tipo" : tipo
+            "tipo" : tipo,
+            "image" : image,
+            "companyImage" : companyImage
         })
     return response
 
@@ -205,9 +213,9 @@ def place():
     driver.find_elements('xpath',"//input")[0].clear()
     driver.find_elements('xpath',"//input")[0].send_keys(typed)
     try:
-        suggestions = WebDriverWait(driver,3).until(EC.presence_of_all_elements_located((By.XPATH, "//ul[@class='DFGgtd']//li[@role='option']")))
+        suggestions = WebDriverWait(driver,10).until(EC.presence_of_all_elements_located((By.XPATH, "//ul[@class='DFGgtd']//li[@role='option']")))
     except TimeoutException:
-        return 0
+        return driver.page_source
     response = []
     for suggestion in suggestions:
         #arrumar para o caso de não existir um specification ou acronym
@@ -287,7 +295,7 @@ def flights():
     time.sleep(1)
 
     #setting passangers
-    if(adults > 1 or sum(infants_seat, children, infants_lap) > 0):
+    if(adults > 1 or (infants_seat + children + infants_lap) > 0):
         passangers_selector = driver.find_elements('xpath', "//button[contains(@class,'VfPpkd-LgbsSe')]")[8]
         passangers_selector.click()
         time.sleep(0.5)
@@ -447,7 +455,7 @@ def apply_filter_hotel():
 def cars_suggestion():
     driver.get("https://www.rentcars.com/pt-br/")
     time.sleep(2)
-    typed = request.json['typed']
+    typed = request.args.get('typed')
     driver.find_element('xpath', "//div[@class='get-car-in']//input[@type='text']").send_keys(typed)
     try:
         suggestions = WebDriverWait(driver,3).until(EC.presence_of_all_elements_located((By.XPATH, "//div[@class='get-car-in']//ul[contains(@class, 'autocomplete')]//li")))
@@ -475,8 +483,8 @@ def cars():
     
     data_retirada = request.args.get('data_retirada')
     data_devolucao = request.args.get('data_devolucao')
-    data_retirada = data_retirada.split("/")
-    data_devolucao = data_devolucao.split("/")
+    data_retirada = data_retirada.split("-")
+    data_devolucao = data_devolucao.split("-")
     time.sleep(2)
     try:
         WebDriverWait(driver, 60).until(
@@ -486,7 +494,7 @@ def cars():
         return driver.page_source
     driver.find_element('xpath', "//div[@class='search-pickup-date elVal']").click()
     time.sleep(1)
-    month_selector_retirada = months[int(data_retirada[1])-1] + " " + data_retirada[2]
+    month_selector_retirada = months[int(data_retirada[1])-1] + " " + data_retirada[0]
     retirada_found = False
     while not retirada_found:
         counter = 0
@@ -499,9 +507,9 @@ def cars():
             driver.find_element('xpath', "//th[contains(@class, 'next')]//span").click()
         time.sleep(1)
     table_location = 'left' if counter == 0 else 'right'
-    driver.find_element('xpath', "//div[@class='drp-calendar "+ table_location +"']//td//span[text()='"+str(int(data_retirada[0]))+"']").click()
+    driver.find_element('xpath', "//div[@class='drp-calendar "+ table_location +"']//td//span[text()='"+str(int(data_retirada[2]))+"']").click()
     time.sleep(1)
-    month_selector_devolucao = months[int(data_devolucao[1])-1] + " " + data_devolucao[2]
+    month_selector_devolucao = months[int(data_devolucao[1])-1] + " " + data_devolucao[0]
     devolucao_found = False
     while not devolucao_found:
         counter = 0
@@ -514,7 +522,7 @@ def cars():
             driver.find_element('xpath', "//th[contains(@class, 'next')]//span").click()
         time.sleep(1)
     table_location = 'left' if counter == 0 else 'right'
-    driver.find_element('xpath', "//div[@class='drp-calendar "+ table_location +"']//td//span[text()='"+str(int(data_devolucao[0]))+"']").click()
+    driver.find_element('xpath', "//div[@class='drp-calendar "+ table_location +"']//td//span[text()='"+str(int(data_devolucao[2]))+"']").click()
     hora_retirada = request.args.get('hora_retirada')
     hora_devolucao = request.args.get('hora_devolucao')
 
