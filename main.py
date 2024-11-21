@@ -75,7 +75,7 @@ def scrape_car_data(cards, response, filters = None):
         try:
             WebDriverWait(card, 15).until(EC.presence_of_element_located((By.XPATH, ".//div[@class='total-amount_1XUQg1Kt']")))
         except TimeoutException:
-            return False
+            return driver.page_source
         price = card.find_element('xpath', ".//div[@class='total-amount_1XUQg1Kt']").text
         price = price.replace("R$ ","").replace(".","").replace(",",".")
         if filters and "max_price" in filters:
@@ -559,19 +559,24 @@ def cars():
 
 @app.get("/attractions")
 def attractions():
-    place = request.json['place']
+    place = request.args.get('place')
     driver.get("https://tourscanner.com/pt/search?q="+place)
     try:
-        cards = WebDriverWait(driver, 3).until(EC.presence_of_all_elements_located((By.XPATH, "//div[@class='flex-column w']//ul//li")))
+        WebDriverWait(driver, 15).until(EC.presence_of_all_elements_located((By.XPATH, "//p[contains(text(), 'Atividades encontradas')]")))
     except TimeoutException:
         return jsonify({"error": "Timeout waiting for attractions"}, 504)
     
+    cards = driver.find_elements('xpath', "//div[contains(@class,'flex-column w')]//ul//li")
     response = []
     for card in cards:
+        try:
+            card.find_element('xpath', ".//h2")
+        except NoSuchElementException:
+            return driver.page_source
         name = card.find_element('xpath', ".//h2").text
         image = card.find_element('xpath', ".//img").get_attribute('src')
-        stars = card.find_element('xpath', ".//div[@class='flex items-end space-x-2']//span")[0].text
-        reviews = card.find_element('xpath', ".//div[@class='flex items-end space-x-2']//span")[1].text
+        stars = card.find_elements('xpath', ".//div[@filled_stars]//span")[1].text
+        reviews = card.find_elements('xpath', ".//div[@filled_stars]//span")[2].text
         try:
             price = card.find_element('xpath', ".//div[@class='flex items-end space-x-2']//div").text
         except NoSuchElementException:
