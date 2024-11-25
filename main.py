@@ -325,12 +325,13 @@ def flights():
 
     #start scrapping
     try:
-        WebDriverWait(driver, 15).until(EC.presence_of_all_elements_located((By.XPATH, "//div[contains(@class, 'zISZ5c')]")))
-    except TimeoutException:
-        return driver.page_source
-    expand = driver.find_element('xpath', "//div[contains(@class, 'zISZ5c')]")
-    expand.click()
-    time.sleep(6)
+        #WebDriverWait(driver, 15).until(EC.presence_of_all_elements_located((By.XPATH, "//div[contains(@class, 'zISZ5c')]")))
+        expand = driver.find_element('xpath', "//div[contains(@class, 'zISZ5c')]")
+        expand.click()
+        time.sleep(6)
+    except NoSuchElementException:
+        print("Não achou expandir")
+
     cards = driver.find_elements('xpath', "//div[@class='yR1fYc']")
     
     response = []
