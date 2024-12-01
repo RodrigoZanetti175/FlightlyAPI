@@ -115,9 +115,7 @@ def scrape_car_data(cards, response, filters = None):
 
 def scrape_hotel_data(cards, response, filters = None):
     for card in cards:
-        images = []
-        for image in card.find_elements('xpath', ".//img"):
-            images.append(image.get_attribute('src'))
+        image = card.find_element('xpath', ".//img")
         price = card.find_elements('xpath', ".//div[@class='JGa7fd']")[0].text
         price = price.replace("R$ ","")
         if filters and "max_price" in filters:
@@ -146,7 +144,7 @@ def scrape_hotel_data(cards, response, filters = None):
                 continue
         response.append({
             "name" : name,
-            "image" : images,
+            "image" : image,
             "stars" : stars,
             "reviews" : reviews,
             "characteristics" : characteristics,
@@ -164,7 +162,7 @@ def scrape_flight_data(cards, response, filters = None):
             if(price == ""):
                 break
             if(filters and "max_price" in filters):
-                if(float(price) > filters["max_price"]):
+                if(float(price) > int(filters["max_price"])):
                     break
             if(filters and "min_price" in filters):
                 if(float(price) < filters["min_price"]):
@@ -379,13 +377,17 @@ def redirect_flight():
     card.find_element('xpath', ".//button").click()
     time.sleep(2)
     return driver.current_url
-@app.get("/flights/filter")
+@app.post("/flights/filter")
 def apply_filter():
     driver.get(request.json['url'])
     time.sleep(1)
-    expand = driver.find_element('xpath', "//div[contains(@class, 'zISZ5c')]")
-    expand.click()
-    time.sleep(4)
+    try:
+        #WebDriverWait(driver, 15).until(EC.presence_of_all_elements_located((By.XPATH, "//div[contains(@class, 'zISZ5c')]")))
+        expand = driver.find_element('xpath', "//div[contains(@class, 'zISZ5c')]")
+        expand.click()
+        time.sleep(6)
+    except NoSuchElementException:
+        print("Não achou expandir")
     filters = request.json['filters']
     response = []
     response.append({"url" : driver.current_url})
@@ -456,6 +458,8 @@ def apply_filter_hotel():
 def cars_suggestion():
     driver.get("https://www.rentcars.com/pt-br/")
     time.sleep(2)
+    if(check_exists_by_xpath(driver, "//span[contains(text(), '×')]")):
+        driver.find_element('xpath', "//span[contains(text(), '×')]").click()
     typed = request.args.get('typed')
     driver.find_element('xpath', "//div[@class='get-car-in']//input[@type='text']").send_keys(typed)
     try:
@@ -487,8 +491,10 @@ def cars():
     data_retirada = data_retirada.split("-")
     data_devolucao = data_devolucao.split("-")
     time.sleep(2)
+    if(check_exists_by_xpath(driver, "//span[contains(text(), '×')]")):
+        driver.find_element('xpath', "//span[contains(text(), '×')]").click()
     try:
-        WebDriverWait(driver, 60).until(
+        WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.XPATH, "//div[@class='search-pickup-date elVal']"))
         )
     except TimeoutException:
